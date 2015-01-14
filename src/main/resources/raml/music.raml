@@ -1,0 +1,189 @@
+#%RAML 0.8
+
+title: World Music API
+baseUri: http://example.api.com/{version}
+version: v1
+schemas:
+  - halLink: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "javaType" : "talk.ramlbpmn.api.model.HalLink",
+        "description": "A HAL link",
+        "properties": {
+          "href":  { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "templated": {"type": "boolean"}
+        }
+      }
+
+  - song: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "javaType" : "talk.ramlbpmn.api.model.Song",
+        "description": "A canonical song",
+        "properties": {
+          "title":  { "type": "string" },
+          "artist": { "type": "string" },
+          "_links": { "$ref": "songLinks" }
+        },
+        "required": [ "title", "artist" ]
+      }
+
+  - songLinks: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "javaType" : "talk.ramlbpmn.api.model.SongLinks",
+        "description": "The links of a Song",
+        "properties": {
+          "self" : { "$ref": "halLink"},
+          "artist" : { "$ref": "halLink", "targetType": "artist"}
+        }
+      }
+
+  - songListLinks: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "javaType" : "talk.ramlbpmn.api.model.SongListLinks",
+        "description": "The links of a Song List",
+        "properties": {
+          "self" : { "$ref": "halLink"},
+          "next" : { "$ref": "halLink", "description": "next page of the list"}
+        }
+      }
+
+  - artist: |
+      {
+        "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "properties" : {
+          "name": { "type": "string" },
+          "_links": {
+            "$ref": "artistLinks"
+          }
+        }
+      }
+  - artistLinks: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "javaType" : "talk.ramlbpmn.api.model.ArtistLinks",
+        "description": "The links of an Artist",
+        "properties": {
+          "self" : { "$ref": "halLink"},
+          "songs" : { "$ref": "halLink", "targetType": "songList"}
+        }
+      }
+
+  - artistListLinks: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "javaType" : "talk.ramlbpmn.api.model.ArtistListLinks",
+        "description": "The links of a Song List",
+        "properties": {
+          "self" : { "$ref": "halLink"},
+          "next" : { "$ref": "halLink", "description": "next page of the list"}
+        }
+      }
+
+  - serviceDocument: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "javaType" : "talk.ramlbpmn.api.model.ServiceDocument",
+        "description": "The links of a Song List",
+        "properties": {
+          "self" : { "$ref": "halLink"},
+          "artists" : { "$ref": "halLink", "targetType": "artistList"},
+          "songs" : { "$ref": "halLink", "targetType": "songList"}
+        }
+      }
+
+  - order: |
+      { "$schema": "http://json-schema.org/schema",
+        "type": "object",
+        "description": "The order request",
+        "properties": {
+          "songId" : { "type": "string", "description": "the song which should be ordered" },
+          "customerId": { "type": "string" },
+          "mediaFormat": {"enum": ["MP3", "VINYL"], "description": "the customer can choose how in which format he wants to get the song." }
+        }
+      }
+
+traits:
+  - halCollection:
+      queryParameters:
+        page:
+          description: The page to retrieve
+          type: number
+      responses:
+        200:
+          body:
+            application/hal+json:
+              schema: |
+                { "$schema": "http://json-schema.org/schema",
+                  "id": "<<id>>",
+                  "type": "object",
+                  "javaType" : "<<collectionJavaType>>",
+                  "description": "A HAL collection",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "<<itemsProperty>>": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "<<itemSchema>>"
+                      }
+                    },
+                    "_links": {
+                      "$ref": "<<collectionLinks>>"
+                    }
+                  }
+                }
+
+/:
+  get:
+    responses:
+      200:
+        body:
+          application/hal+json:
+            schema: serviceDocument
+
+/songs:
+  get:
+    is: [ halCollection: { id: songList, collectionJavaType: talk.ramlbpmn.api.model.SongList, itemsProperty: songs, itemSchema: song, collectionLinks: songListLinks}]
+    queryParameters:
+      genre:
+        description: filter the songs by genre
+  post:
+    responses:
+      200:
+  /{songId}:
+    get:
+      responses:
+        200:
+          body:
+            application/hal+json:
+              schema: song
+    delete:
+      description: |
+        This method will *delete* an **individual song**
+      responses:
+        200:
+
+/artists:
+  get:
+    is: [ halCollection: { id: artistList, collectionJavaType: talk.ramlbpmn.api.model.ArtistList, itemsProperty: artists, itemSchema: artist, collectionLinks: artistListLinks}]
+  /{artistId}:
+    get:
+      responses:
+        200:
+          body:
+            application/hal+json:
+              schema: artist
+/order:
+  post:
+    body:
+      application/json:
+        schema: order
+    responses:
+      201:
